@@ -1,0 +1,58 @@
+---
+title: "Paso 2.- Notación génica"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hide', message = F)
+```
+
+## 1.- Cargamos paquetes
+Lo primero va a ser cargar los datos de anotación específicos para cada uno de los dos estudios, pues cada uno ha sido realizado con un microarray distinto.
+
+```{r,eval = F}
+library(hugene10sttranscriptcluster.db)
+library(hgu133plus2.db)
+library(Biobase)
+library(GEOquery)
+library(clusterProfiler)
+```
+
+## 2.- Carga del GSE
+A continuación vamos a cargar los GSE previamente normalizados.
+
+```{r,eval = F}
+load("data/gse27011_rma.rda")
+load("data/gse31773_rma.rda")
+```
+
+## 3.- Obtención de los genes
+En ambos casos la notación génica se encuentra en PROBEID, pero para futuras comparaciones y procedimientos nos va a ser de gran utilidad el convertir también esta notación a formato SYMBOL y ENTREZID.
+
+```{r,eval = F}
+genes_27011 = featureNames(gse27011_rma)
+notacion = bitr(genes_27011, "PROBEID",c("SYMBOL","ENTREZID"),hugene10sttranscriptcluster.db, drop =TRUE)
+fData(gse27011_rma) = notacion
+
+genes_31773 = featureNames(gse31773_rma)
+notacion = bitr(genes_31773, "PROBEID",c("SYMBOL","ENTREZID"),hgu133plus2.db, drop =TRUE)
+fData(gse31773_rma) = notacion
+```
+
+## 4.- Guardamos datos
+Finalmente guardamos los datos ahora con la notación génica ampliada.
+
+```{r,eval = F}
+save(gse27011_rma, file = "data/gse27011_rma.rda")
+save(gse31773_rma, file = "data/gse31773_rma.rda")
+```
+
