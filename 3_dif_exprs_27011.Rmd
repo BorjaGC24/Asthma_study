@@ -1,0 +1,137 @@
+---
+title: "Paso 3.- Análisis de expresión diferencial (GSE27011)"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  message = F)
+```
+
+
+### Carga de paquetes y datos
+```{r}
+library(Biobase)
+library(genefilter)
+library(limma)
+library(dplyr)
+load("data/gse27011_rma.rda")
+```
+
+
+## 1.- Creación de grupos y matriz de contraste
+
+Lo primero va a ser crear la variable "asmaticos" en donde tenemos clasificado a que grupo pertenece cada muestra (control, asmatico, severo). A continuación vamos a crear el modelo para las comparaciones, usando en este caso "~0+asmaticos". También es necesario construir la matriz de contraste, en donde se van a hacer las comparaciones de interés, en este caso son:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- asmáticos vs. control<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- severo vs. control<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- (asmatico - control) - (severo - control)
+
+```{r}
+asmaticos = pData(gse27011_rma)[,"enfermedad"]
+
+design = model.matrix(~0+asmaticos)
+colnames(design) = levels(as.factor(asmaticos))
+rownames(design)=colnames(exprs(gse27011_rma))
+
+cont.matrix_m = makeContrasts(
+  asma = (asmatico - control) ,
+  severo = (severo - control),
+  enfermos = (asmatico - control) - (severo - control),
+  levels = design)
+```
+
+Una vez tenemos todo preparado podemos pasar a calcular el modelo lineal y guardar los resultados.
+
+```{r}
+fit = lmFit(gse27011_rma, design)
+fit1 = contrasts.fit(fit, cont.matrix_m)
+fit2 = eBayes(fit1)
+
+save(fit2, file = "data/dif_exprs_27011.rda")
+```
+
+## 2.- Estudio de los resultados
+Una vez realizado el análisis podemos analizar para cada una de las 3 comparaciones los resultados obtenidos
+
+### 2.1.- Obtención de genes significativos
+Lo primero que vamos a hacer es eliminar aquellos genes repetidos que puedan alterar el conteo y a continuación vamos a ver cuantos de ellos son significativos con un p-valor de 0.05
+```{r echo=TRUE}
+###PARA ASMA###
+output_asma = data.frame(topTable(fit2, coef = 1, 
+                                         number = Inf, adjust.method = "BH"))
+
+output_asma = output_asma[complete.cases(output_asma[ , 1]),]
+
+table(output_asma$adj.P.Val < 0.05)
+```
+
+
+```{r}
+###PARA SEVERO###
+output_severo = data.frame(topTable(fit2,coef = 2,
+                                      number = Inf, adjust.method = "BH"))
+
+output_severo = output_severo[complete.cases(output_severo[ , 1]),]
+
+table(output_severo$adj.P.Val < 0.05)
+```
+
+
+```{r}
+###PARA SEXO###
+
+output_enfermo = data.frame(topTable(fit2,coef = 3,
+                                      number = Inf, adjust.method = "BH"))
+
+output_enfermo = output_enfermo[complete.cases(output_enfermo[ , 1]),]
+
+table(output_enfermo$adj.P.Val < 0.05)
+
+```
+
+### 2.2.- Filtrado de genes
+Vamos a obtener los genes específicos de cada grupo. Así vamos a crear 3 dataframes, el primero de ellos contendrá los genes significativos exclusivos de la comparación asmáticos vs. control, el segundo dataframe contendrá los genes exclusivos de la comparación severo vs. control mientras que el tercer dataframe tendrá los genes que estánn significativamente expresados en solo uno de los dos grupos.
+
+```{r}
+
+output_asma = output_asma[output_asma$adj.P.Val < 0.05, ] 
+output_severo = output_severo[output_severo$adj.P.Val < 0.05, ] 
+output_enfermo = output_enfermo[output_enfermo$adj.P.Val < 0.05, ] 
+
+enfermo = output_enfermo[,c(1,2,3)]
+asma = output_asma[,c(1,2,3)]
+severo = output_severo[,c(1,2,3)]
+
+# Para asma
+asma_1<- setdiff(asma, enfermo)
+asma_2<- setdiff(asma_1 ,severo)
+final_asma = merge(output_asma, asma_2)
+
+# Para severo
+severo_1<- setdiff(severo, enfermo)
+severo_2<- setdiff(severo_1 ,asma)
+final_severo = merge(output_severo, severo_2)
+
+# Para enfermo
+enfermo_1<- setdiff(enfermo, asma)
+enfermo_2<- setdiff(enfermo_1 ,severo)
+final_enfermo = merge(output_enfermo, enfermo_2)
+
+
+write.table(final_asma,"data/genes_27011/output_asma.txt",sep = "\t", row.names = F)
+write.table(final_severo,"data/genes_27011/output_severo.txt",sep = "\t", row.names = F)
+write.table(final_enfermo,"data/genes_27011/output_enfermo.txt",sep = "\t", row.names = F)
+```
+
+
+
+
+
