@@ -1,0 +1,225 @@
+---
+title: "Paso 4.- Análisis GSEA (31773)"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hide', message = F)
+```
+
+#### Carga de paquetes y datos
+
+A continuación se va a realizar un análisis de enriquecimiento funcional (GSEA) mediante el paquete mdgsa, lo que nos va a permitir analizar nuestros resultados no desde una visión gen a gen sino en una visión más global viendo que cluster de genes se encuentran estadísticamente sobre o infra representados en función a los resultados obtenidos anteriormente mediante limma, donde hemos extraído para cada uno de los grupos (control, asmáticos y severos) cuales eran sus genes significativos.
+
+```{r}
+library(mdgsa)
+library(hgu133plus2.db)
+load("data/dif_exprs_31773.rda")
+```
+
+Para el análisis de enriquecimiento funcional va a ser necesario cargar la información externa, en este caso vamos a emplear los términos de GO Ontology y las rutas KEGG.
+
+
+```{r}
+anmat <- toTable(hgu133plus2GO)
+anmat_kegg <- toTable(hgu133plus2PATH)
+```
+
+Vamos a realizar un análisis individual para cada grupo experimental.
+
+### 1.- Análisis para Asmáticos vs Control
+
+#### 1.1.- Preparación de los datos
+Primero necesitaremos obtener los p-valores y el estadístico t de los genes significativos. Estos valores los normalizaremos con indexTrasnform para poder realizar un modelo de regresión logística.
+
+```{r}
+rindex <- pval2index (pval = fit2$p.value[,1], sign = fit2$t[,1])
+rindex <- indexTransform (rindex)
+```
+
+Podemos visualizar la variable rindex en función del estadístico T y el pvalue, para poder observar cual es la proporcion de genes sobre e infra expresados así como el valor de los p-valores obtenidos
+
+```{r,}
+plot (fit2$t[,1], rindex, xlab = "Estadístico T", ylab = "Ranking")
+plot (fit2$p.value[,1], rindex, xlab = "P valor", ylab = "Ranking")
+```
+
+#### 1.2.- Clusterización de genes
+A continuación vamos a darle forma a la anotación, agrupando los distintos genes en clusters representados por términos GO usando la función annotMat2lis.
+Además debemos comprobar que nuestros genes significativos y los genes que acabamos de agrupar en clusters conformando nuestro "universo" de genes coinciden. También vamos a aprovechar para filtrar dichos clusters de forma que solo trabajaremos con aquellos con un tamaño 10:500 genes.
+
+```{r,eval = F}
+annot<-annotMat2list(anmat)
+annot<- annotFilter(annot, rindex, minBlockSize = 10, maxBlockSize = 500)
+
+annot_kegg<-annotMat2list(anmat_kegg)
+annot_kegg<- annotFilter(annot_kegg, rindex, minBlockSize = 10, maxBlockSize = 500)
+```
+
+#### 1.3.- Análisis GSEA
+```{r,eval = F}
+res_asma = uvGsa(rindex, annot)
+res_asma_kegg = uvGsa(rindex, annot_kegg)
+```
+
+#### 1.4.- Visionado de los resultados
+Y una vez terminado podemos realizar el visionado de los resultados. Podemos emplear la función uvPat que va a clasificar los genes en significativos y upregulated, significativos y downregulated o no significativos. Además vamos a obtener el nombre de los terminos GO relacinoados con nuestros genes y finalmente nos quedaremos con aquellos cluster significativamente enriquecidos.<br>
+
+Primero lo hacemos para los términos GO
+```{r,eval = F}
+res_asma[,"up/down"] <- uvPat(res_asma, cutoff = 0.05)
+table(res_asma$`up/down`)
+
+res_asma[,"GO"]<-getGOnames(res_asma)
+
+resultado_asma <- uvSignif(res_asma)
+resultado_asma = resultado_asma[order(resultado_asma$lor),]
+save(resultado_asma, file ="data/diff_exprs_31773/asma_GO_31773.rda")
+```
+
+Vamos a hacer lo mismo para KEGG
+```{r,eval = F}
+res_asma_kegg[,"up/down"] <- uvPat(res_asma_kegg, cutoff = 0.05)
+table(res_asma_kegg$`up/down`)
+
+res_asma_kegg[,"KEGG"]<-getKEGGnames(res_asma_kegg)
+
+resultado_asma_kegg <- uvSignif(res_asma_kegg)
+resultado_asma_kegg = resultado_asma_kegg[order(resultado_asma_kegg$lor),]
+save(resultado_asma_kegg, file ="data/diff_exprs_31773/asma_KEGG_31773.rda")
+```
+
+
+### 2.- Análisis para Severos vs. Control y Asmáticos vs. Severos
+Vamos a realizar le mismo proceso para severos y para enfermos (asmáticos vs. severo)<br>
+
+#### 2.1.- Severos
+
+```{r}
+anmat <- toTable(hgu133plus2GO)
+anmat_kegg <- toTable(hgu133plus2PATH)
+
+rindex <- pval2index (pval = fit2$p.value[,2], sign = fit2$t[,2])
+rindex <- indexTransform (rindex)
+
+plot (fit2$t[,2], rindex, xlab = "Estadístico T", ylab = "Ranking")
+plot (fit2$p.value[,2], rindex, xlab = "P valor", ylab = "Ranking")
+```
+
+
+```{r,eval = F}
+annot<-annotMat2list(anmat)
+annot<- annotFilter(annot, rindex, minBlockSize = 10, maxBlockSize = 500)
+
+annot_kegg<-annotMat2list(anmat_kegg)
+annot_kegg<- annotFilter(annot_kegg, rindex, minBlockSize = 10, maxBlockSize = 500)
+```
+
+
+```{r,eval = F}
+res_severo = uvGsa(rindex, annot)
+res_severo_kegg = uvGsa(rindex, annot_kegg)
+```
+
+
+```{r,eval = F}
+res_severo[,"up/down"] <- uvPat(res_severo, cutoff = 0.05)
+table(res_severo$`up/down`)
+
+res_severo[,"GO"]<-getGOnames(res_severo)
+
+resultado_severo <- uvSignif(res_severo)
+resultado_severo = resultado_severo[order(resultado_severo$lor),]
+save(resultado_severo, file ="data/diff_exprs_31773/severo_GO_31773.rda")
+```
+
+
+```{r,eval = F}
+res_severo_kegg[,"up/down"] <- uvPat(res_severo_kegg, cutoff = 0.05)
+table(res_severo_kegg$`up/down`)
+
+res_severo_kegg[,"KEGG"]<-getKEGGnames(res_severo_kegg)
+
+resultado_severo_kegg <- uvSignif(res_severo_kegg)
+resultado_severo_kegg = resultado_severo_kegg[order(resultado_severo_kegg$lor),]
+save(resultado_severo_kegg, file ="data/diff_exprs_31773/severo_KEGG_31773.rda")
+```
+
+#### 2.2.- Enfermos
+```{r}
+anmat <- toTable(hgu133plus2GO)
+anmat_kegg <- toTable(hgu133plus2PATH)
+
+rindex <- pval2index (pval = fit2$p.value[,3], sign = fit2$t[,3])
+rindex <- indexTransform (rindex)
+
+plot (fit2$t[,3], rindex, xlab = "Estadístico T", ylab = "Ranking")
+plot (fit2$p.value[,3], rindex, xlab = "P valor", ylab = "Ranking")
+```
+
+
+```{r,eval = F}
+annot<-annotMat2list(anmat)
+annot<- annotFilter(annot, rindex, minBlockSize = 10, maxBlockSize = 500)
+
+annot_kegg<-annotMat2list(anmat_kegg)
+annot_kegg<- annotFilter(annot_kegg, rindex, minBlockSize = 10, maxBlockSize = 500)
+```
+
+
+```{r,eval = F}
+res_enfermos = uvGsa(rindex, annot)
+res_enfermos_kegg = uvGsa(rindex, annot_kegg)
+```
+
+
+```{r,eval = F}
+res_enfermos[,"up/down"] <- uvPat(res_enfermos, cutoff = 0.05)
+table(res_enfermos$`up/down`)
+
+res_enfermos[,"GO"]<-getGOnames(res_enfermos)
+
+resultado_enfermos <- uvSignif(res_enfermos)
+resultado_enfermos = resultado_enfermos[order(resultado_enfermos$lor),]
+save(resultado_enfermos, file ="data/diff_exprs_31773/enfermos_GO_31773.rda")
+```
+
+
+```{r,eval = F}
+res_enfermos_kegg[,"up/down"] <- uvPat(res_enfermos_kegg, cutoff = 0.05)
+table(res_enfermos_kegg$`up/down`)
+
+res_enfermos_kegg[,"KEGG"]<-getKEGGnames(res_enfermos_kegg)
+
+resultado_enfermos_kegg <- uvSignif(res_enfermos_kegg)
+resultado_enfermos_kegg = resultado_enfermos_kegg[order(resultado_enfermos_kegg$lor),]
+save(resultado_enfermos_kegg, file ="data/diff_exprs_31773/enfermos_KEGG_31773.rda")
+```
+
+### 3.- Filtrado de rutas
+Finalmente nos vamos a quedar con las rutas KEGG significativas solo en uno de los grupos, descartando aquellas rutas significativas que aparecen en mas de grupo.
+
+```{r,eval = F}
+rutas_asma = rownames(resultado_asma_kegg)
+rutas_severo = rownames(resultado_severo_kegg)
+
+exclusivas_severo<- setdiff(rutas_severo,rutas_asma)
+exclusivas_asma<- setdiff(rutas_asma,rutas_severo)
+rutas_asma_severo <- intersect(rutas_asma, rutas_severo)
+
+exclusivas_severo = resultado_severo_kegg[exclusivas_severo,]
+exclusivas_asma = resultado_asma_kegg[exclusivas_asma,]
+comunes_asma_severo = resultado_severo_kegg[rutas_asma_severo,]
+save(exclusivas_severo, file = "data/rutas_exclusivas/exclusivas_severo.rda" )
+save(exclusivas_asma, file = "data/rutas_exclusivas/exclusivas_asma.rda" )
+save(comunes_asma_severo, file = "data/rutas_exclusivas/comunes_asma_severo.rda" )
+```
