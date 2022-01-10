@@ -1,0 +1,75 @@
+---
+title: "Paso 4.- Visualización expresión génica (27011)"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hide', message = F)
+```
+
+#### Cargamos los resultados del análisis de expresión diferencial
+```{r}
+load("data/dif_exprs_27011.rda")
+load("data/gse27011_rma.rda")
+library(limma)
+```
+
+### 1.- Resultado global
+```{r}
+dT <- decideTests(fit2, adjust.method="fdr", p.value=0.05)
+
+vennDiagram(dT, circle.col=palette())
+```
+
+### 2.- Genes significativos para asmáticos vs. controls
+
+```{r}
+dT <- decideTests(fit2, adjust.method="fdr", p.value=0.05)
+
+volcanoplot(fit2, coef=1, main="Asmático vs. Control", pch=20,
+            highlight=length(which(dT[,1]!=0)), names=rep('+', nrow(fit2)))
+
+plotMD(fit2, column=1, main="Asmático vs. Control", status=dT[,1], legend=T, pch=20, cex=1)
+```
+
+### 3.- Genes significativos para severos vs. control
+```{r}
+
+dT <- decideTests(fit2, adjust.method="fdr", p.value=0.05)
+
+volcanoplot(fit2, coef=2, main="Severo vs. Control", pch=20,
+            highlight=length(which(dT[,2]!=0)), names=rep('+', nrow(fit2)))
+
+plotMD(fit2, column=2, main="Severo vs. Control", status=dT[,2], legend=T, pch=20, cex=1)
+
+```
+
+### 4.- Genes significativos para asmáticos vs. enfermos
+```{r}
+
+dT <- decideTests(fit2, adjust.method="fdr", p.value=0.05)
+
+volcanoplot(fit2, coef=3, main="Asmático vs. Severo", pch=20,
+            highlight=length(which(dT[,3]!=0)), names=rep('+', nrow(fit2)))
+
+plotMD(fit2, column=3, main = "Asmático vs. Severo", status=dT[,3], legend=T, pch=20, cex=1)
+
+```
+
+
+
+
+
+
+
+
+
