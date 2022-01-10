@@ -1,0 +1,115 @@
+---
+title: "Paso 1.- Descarga y normalización"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hide', message = F)
+```
+
+## 1.- Descarga de los datos sin normalizar.
+El primer paso va a ser acceder a GEO para poder descargar los datos sin normalizar mediante el paquete oligo. Para ello vamos a crear una carpeta llamada "GSE27011_RAW" donde guardaremos la información descargada
+
+```{r}
+library(GEOquery)
+gse27011 = oligo::read.celfiles(list.files(path = 'GSE27011_RAW/',
+                                          pattern = '*.CEL.gz', full.names = TRUE))
+```
+
+## 2.- Procesado del array
+Una vez hemos descargado y cargado en R los datos crudos del experimento vamos a proceder a realizar un control de calidad sobre ellos mediante varios pasos.
+
+### 2.1.- Normalización con RMA
+Lo primero será normalizar todas las muestras del estudio, en este caso mediante el método  Robust Multiarray Averaging (RMA). Además guardaremos una copia de los datos normalizados a modo de backup.
+
+```{r}
+gse27011_rma = oligo::rma(gse27011)
+save(gse27011_rma, file = "data/gse27011.rda")
+```
+
+### 2.2.- Filtrado de genes
+Para eliminar aquellos genes con baja expresión que añaden ruido a nuestros resultados vamos a usar el método kOverA, usando el primer cuartil mínimo para seleccionar aquellos genes que incluiremos en el estudio. 
+
+```{r}
+library(genefilter)
+c<-quantile(exprs(gse27011_rma))[[1]]
+f1 = kOverA(5,c)
+ffun = filterfun(f1)
+wh1 = genefilter(exprs(gse27011_rma), ffun)
+gse27011_rma.q = gse27011_rma[wh1,]
+```
+
+```{r}
+par(mfrow = c(1,2))
+hist(exprs(gse27011))
+hist(exprs(gse27011_rma))
+c<-quantile(exprs(gse27011_rma))[[2]]
+abline(v = c, col = "coral4", lwd = 2)
+```
+
+### 2.3.- Control de calidad
+Podemos visualizar nuestros datos antes y después del filtrado, así como generar un informe para detectar posibles outliers mediante el paquete arrayQualityMetrics, que nos informará del posible ruido que tenemos en el estudio y de si alguna de las muestras puede ser considerada un outlier y por tanto descartada.
+
+```{r,eval = F}
+library(arrayQualityMetrics)
+arrayQualityMetrics(expressionset = gse27011_rma.q, outdir = "gse27011_1", force = TRUE)
+```
+
+## 3.- Post-procesado del array (OPCIONAL)
+Si con el control de calidad visto en el punto anterior considerasemos alguna de las muestras como outlier, sería necesario su eliminación de los datos para reducir al máximo el ruido, para ello deberiamos volver a cargar el estudio y eliminar la CEL.gz que hemos determinado como outlier.
+
+```{r results='hide', message=FALSE, warning=FALSE,eval = F}
+gse27011_outlier = oligo::read.celfiles(list.files(path = 'GSE27011_NORM/',
+                                    pattern = '*.CEL.gz', full.names = TRUE))
+```
+
+### 3.1.-Volvemos a normalizar
+```{r,eval = F}
+gse27011_outlier_rma = oligo::rma(gse27011_outlier)
+```
+
+### 3.2.- Eliminamos genes residuales
+```{r,eval = F}
+c<-quantile(exprs(gse27011_outlier_rma))[[2]]
+f1 = kOverA(5,c)
+ffun = filterfun(f1)
+wh1 = genefilter(exprs(gse27011_outlier_rma), ffun)
+gse27011_outlier_rma.q = gse27011_outlier_rma[wh1,]
+```
+
+### 3.3.- Volvemos a visualizar nuestro resultado
+```{r,eval = F}
+par(mfrow = c(1,2))
+hist(exprs(gse27011_outlier_rma))
+abline(v = 2.5, col = "coral4", lwd = 2)
+hist(exprs(gse27011_outlier_rma.q))
+```
+
+## 4.- Añadimos metadatos del estudio
+Una vez tenemos las muestras listas es necesario añadir información del estudio asociada a estas muestras para poder más adelante realizar los análisis de expresión diferencial y enriquecimiento funcional. Será necesario descargarnos la "series_matrix" del experimento, que podemos encontrar en la página de GEO dedicada a dicho proyecto. Una vez cargada añadiremos manualmente una variable extra, la variable "enfermedad" que nos va a permitir realizar las comparaciones necesarias más adelante.
+
+```{r,eval = F}
+meta_info <- getGEO(filename = "data/GSE27011_series_matrix.txt",AnnotGPL = TRUE)
+  
+enfermedad = factor(c(rep(1,18),(rep(2,19)), (rep(3,17))), levels = 1:3,labels = c("control","asmatico","severo"))
+metadatos = data.frame(pData(meta_info),enfermedad)
+rownames(metadatos) = colnames(gse27011_rma)
+pData(gse27011_rma) = metadatos
+```
+
+## 5.- Guardamos el resultado
+Finalmente con el estudio normalizado y con su información añadida podemos guardar los datos para continuar trabajando con ellos en siguientes scripts.
+
+```{r,eval = F}
+save(gse27011_rma, file = "data/gse27011_rma.rda")
+```
+
