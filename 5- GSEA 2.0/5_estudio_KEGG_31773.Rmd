@@ -1,0 +1,133 @@
+---
+title: "Paso 5.- Análisis GSEA 2.0 (31773)"
+author: "Borja Gómez"
+date: "20/11/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: flatly
+    
+---
+<div align="justify">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hide', message = F,eval = F)
+```
+
+#### Cargamos  los datos y paquetes necesarios
+```{r}
+library("pathfindR")
+library(ggplot2)
+
+load("data/rutas_exclusivas/comunes_asma_severo.rda")
+load("data/rutas_exclusivas/exclusivas_asma.rda")
+load("data/rutas_exclusivas/exclusivas_severo.rda")
+load("data/dif_exprs_31773.rda")
+```
+
+
+### 1.- Análisis para asmáticos
+
+Vamos a extraer de los resultados de limma aquellos correspondientes para los asmáticos. A continuación eliminaremos los NA y crearemos un dataframe que usaremos como input para el paquete "pathfindR". Este paquete necesita los nombres de los genes, el logFC de cada uno de sus genes y el p.valor, que en este caso le daremos el ajustado.
+
+A continuación con la función run_pathfindR
+
+```{r}
+set_asma = data.frame(topTable(fit2, coef = 1, number = Inf, adjust.method = "BH"))
+
+set_asma = set_asma[complete.cases(set_asma[ , 1]),]
+
+set_asma = data.frame(set_asma$SYMBOL, set_asma$logFC, set_asma$adj.P.Val)
+
+rutas_asma <- run_pathfindR(set_asma, 
+                           min_gset_size = 10, 
+                           max_gset_size = 2000, 
+                           gene_sets = "KEGG",
+                           pin_name_path = "KEGG", 
+                           visualize_enriched_terms = TRUE)
+
+save(rutas_asma, file = "data/31773_KEGG/rutas_asma.rda")
+```
+
+Una vez obtenidas las rutas mas significativas podemos realizar una visualización de los datos
+
+```{r}
+enrichment_chart(rutas_asma, top_terms = 20, plot_by_cluster = TRUE)
+
+term_gene_heatmap(rutas_asma, use_description = TRUE, num_terms = 20)
+
+# No recomendado, la visualización no es muy bonita
+#term_gene_graph(rutas_asma, num_terms = 5, use_description = TRUE)
+
+clustered_df = cluster_enriched_terms(rutas_asma, plot_hmap = TRUE, plot_dend = TRUE, use_description = TRUE)
+
+```
+
+### 2.-  Análisis para severos
+
+```{r}
+set_severo = data.frame(topTable(fit2, coef = 2, number = Inf, adjust.method = "BH"))
+
+set_severo = set_severo[complete.cases(set_severo[ , 1]),]
+
+set_severo = data.frame(set_severo$SYMBOL, set_severo$logFC, set_severo$adj.P.Val)
+
+rutas_severo <- run_pathfindR(set_severo, 
+                           min_gset_size = 10, 
+                           max_gset_size = 500, 
+                           gene_sets = "KEGG",
+                           pin_name_path = "KEGG", 
+                           visualize_enriched_terms = TRUE)
+
+save(rutas_severo, file = "data/31773_KEGG/rutas_severo.rda")
+```
+
+Una vez obtenidas las rutas mas significativas podemos realizar una visualización de los datos
+
+```{r}
+enrichment_chart(rutas_severo, top_terms = 20)
+
+term_gene_heatmap(rutas_severo, use_description = TRUE, num_terms = 11)
+
+# No recomendado, la visualización no es muy bonita
+term_gene_graph(rutas_severo, num_terms = 11, use_description = FALSE)
+
+#Vamos a coger las 15 más relevantes
+clustered_df = cluster_enriched_terms(rutas_severo[1:11,], plot_hmap = TRUE, plot_dend = TRUE, use_description = TRUE, method = "hierarchical")
+```
+
+### 3.-Para enfermos
+
+```{r}
+set_enfermo = data.frame(topTable(fit2, coef = 3, number = Inf, adjust.method = "BH"))
+
+set_enfermo = set_enfermo[complete.cases(set_enfermo[ , 1]),]
+
+set_enfermo = data.frame(set_enfermo$SYMBOL, set_enfermo$logFC, set_enfermo$adj.P.Val)
+
+rutas_enfermo <- run_pathfindR(set_enfermo, 
+                           min_gset_size = 10, 
+                           max_gset_size = 2000, 
+                           gene_sets = "Reactome",
+                           pin_name_path = "STRING", 
+                           visualize_enriched_terms = FALSE)
+
+save(rutas_enfermo, file = "27011_resultados_enfermos/rutas_enfermo.rda")
+```
+
+Una vez obtenidas las rutas mas significativas podemos realizar una visualización de los datos
+
+```{r}
+enrichment_chart(rutas_enfermo, top_terms = 15, plot_by_cluster = TRUE)
+
+term_gene_heatmap(rutas_enfermo, use_description = TRUE, num_terms = 10)
+
+# No recomendado, la visualización no es muy bonita
+term_gene_graph(rutas_enfermo, num_terms = 8, use_description = TRUE)
+
+#Vamos a coger las 15 más relevantes
+clustered_df = cluster_enriched_terms(rutas_enfermo[1:15,], plot_hmap = TRUE, plot_dend = TRUE, use_description = TRUE, method = "hierarchical")
+
+```
