@@ -18,3 +18,4 @@ A modo de conclusión podemos ver que pese a que el asma es una enfermedad muy h
 
 Palabras clave: Asma, Adultez, Niñez, Enfermedad neurodegenerativa, Procesado de proteínas, Metabolismo de ácidos nucleicos.
 
+  ![alt text](https://preview.redd.it/7oj2413gt1k31.jpg?width=960&crop=smart&auto=webp&s=f4af5c109af93186ae0d7d19050dae8634bb6699)
